@@ -9,7 +9,8 @@ Adafruit_MCP23008 mcp[8]; //0 through 7 index values
 const int rows = 7;
 const int columns = 5;
 uint8_t row_count = 0;
-uint8_t shift_right = 0;
+uint8_t shift_right = 2;
+int8_t rotate = 0;
 
 uint16_t tetris_map [10] = { //Array holding values for each row on the tetris board (Hexadecimal)
   0x0000,
@@ -27,60 +28,60 @@ uint16_t tetris_map [10] = { //Array holding values for each row on the tetris b
 };
 
 const char piece_T[12] = { //Piece "T"
-  B00001110,
-  B00000100,
+  B00000001,
+  B00000011,
+  B00000001,
+
+  B00000010,
+  B00000111,
   B00000000,
 
-  B00000100,
-  B00000110,
-  B00000100,
-
-  B00000100,
-  B00001110,
-  B00000000,
-
-  B00000100,
-  B00001100,
-  B00000100
-};
-const char piece_Z[12] = { //Piece "Z"
-  B00000100,
-  B00000110,
+  B00000010,
+  B00000011,
   B00000010,
 
+  B00000000,
+  B00000111,
+  B00000010
+};
+const char piece_Z[12] = { //Piece "Z"
+  B00000010,
+  B00000011,
+  B00000001,
+
+  B00000011,
   B00000110,
-  B00001100,
   B00000000,
 
-  B00001000,
-  B00001100,
-  B00000100,
+  B00000010,
+  B00000011,
+  B00000001,
 
-  B00000110,
-  B00001100,
-  B00000000
+  B00000000,
+  B00000011,
+  B00000110
 };
 const char piece_I[12] = { //Piece "I"
-  B00000100,
-  B00000100,
-  B00000100,
+  B00000001,
+  B00000001,
+  B00000001,
 
   B00000000,
   B00000111,
   B00000000,
 
-  B00000100,
-  B00000100,
-  B00000100,
+  B00000001,
+  B00000001,
+  B00000001,
 
   B00000000,
   B00000111,
   B00000000
 };
 const char piece_L[12] = { //Piece "L"
-  B00000100,
-  B00000100,
-  B00001100,
+  B00000001,
+  B00000001,
+  B00000011,
 
   B00000100,
   B00000111,
@@ -107,6 +108,8 @@ void print_panel(uint8_t x, uint8_t y, uint8_t level) {
   mcp[y].digitalWrite(x, level); //turn on/off panel at (x, y)
 }
 
+// A loop to test if the panels are working properly
+// (Run this by itself if the code or panels are acting up)
 void loop_test() {
   for (int row = 0; row < rows; row++) {
     for (int col = 0; col < columns; col++) {
@@ -118,6 +121,7 @@ void loop_test() {
   }
 }
 
+//Prints the game to the tetris map
 void print_map() { //Turns on panels mapped to tetris_map
   for (int row = 0; row < rows; row++) { //While 0 < 7
     for (int col = 0; col < columns; col++) { //While 0 < 5
@@ -130,31 +134,45 @@ void print_map() { //Turns on panels mapped to tetris_map
   }
 }
 
+//Removes piece from the tetris map so that a collision is not triggered
 void remove_piece() {
   for (int row = 0; row < 3; row++) {
-    tetris_map[row + row_count] &= ~(piece[row] << shift_right);
+    tetris_map[row + row_count] &= ~(piece[row + (rotate * 3)] << shift_right);
   }
 }
 
+//Adds piece to tetris map and moves pieces down
 void add_piece() {
   for (int num = 0; num < 3; num++) {
-    tetris_map[num + row_count] |= (piece[num] << shift_right); //Adds Tetris piece to the tetris map
+    tetris_map[num + row_count] |= (piece[num + (rotate * 3)] << shift_right);
   }
 }
 
-bool collision() {
+//Tests piece collision
+bool collision() { 
   bool collide = false;
   for (int row = 0; row < 3; row++) {
-    if (tetris_map[row + row_count] & (piece[row] << shift_right)) { //This will read collision each time because the location of the piece is traveling with the rows of the tetris map
+    if (tetris_map[row + row_count] & (piece[row + (rotate * 3)] << shift_right)) {
       collide = true;
+      Serial.println("collision");
     }
   }
   return collide;
 }
 
+//Tests if there is a complete row, and initiates a row clear
+void complete_row() {
+  for (int row = 8; row >= 0 ; row--) {
+    if(tetris_map[row] == 0x001F) {
+      tetris_map[row] = 0;
+    }
+  }
+}
+
 void new_piece() {
+  rotate = 0;
   row_count = 0;
-  shift_right = 0;
+  shift_right = 2;
   piece = pieces[random(4)];
 }
 void setup() {
@@ -168,44 +186,64 @@ void setup() {
   pinMode(4, INPUT_PULLUP);
   pinMode(5, INPUT_PULLUP);
   pinMode(6, INPUT_PULLUP);
-  
+
   new_piece();
-  row_count--;
 }
 
 void loop() {
 
-  int b1 = digitalRead(4); // Move piece left
-  int b2 = digitalRead(5); // Move piece right
-  int b3 = digitalRead(6); // Rotate piece
+  print_map();
+  
+  int left = digitalRead(4); // Move piece left
+  int right = digitalRead(5); // Move piece right
+  int rotatebutton = digitalRead(6); // Rotate piece
 
-  if (b1 == LOW) {
-    Serial.println("BUtton 3");
-    //shift_right--;
-    delay(500);
+  if (left == LOW) {
+    remove_piece();
+    Serial.println("LEFT!");
+    shift_right--;
+    if (collision() == true) {
+      shift_right++;
+    }
+    delay(10);
   }
-  if (b2 == LOW) {
-    Serial.println("BUtton 2");
-    //shift_right++;
-    delay(500);
+  if (right == LOW) {
+    remove_piece();
+    Serial.println("RIGHT!");
+    shift_right++;
+    if (collision() == true) {
+      shift_right--;
+    }
+    delay(10);
   }
- /* if (b3 == LOW) {
-    Serial.println("BUtton 3");
-    delay(500);
-  } */
+  if (rotatebutton == LOW) {
+    remove_piece();
+    rotate++;
+    if(collision() == true) {
+      rotate--;
+    }
+    delay(10);
+  }
 
-  /*remove_piece();
+  //The Game
 
-  row_count++;
+  remove_piece(); // Remove piece to ensure no collision
+
+  row_count++; // Moves the row down
   if (collision() == true) {
     row_count--;
     add_piece();
     new_piece();
     row_count--;
+    print_map();
+    complete_row();
+    print_map();
+    
   } else {
     add_piece();
   }
   print_map();
-
-  delay(1100); */
+  
+  delay(1100);
+  
 }
