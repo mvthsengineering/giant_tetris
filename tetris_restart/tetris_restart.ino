@@ -1,3 +1,4 @@
+
 #include <Wire.h> //allows communication with I2C
 #include "Adafruit_MCP23008.h" //Library for MCP23008 Microcontroller
 #define FULL_ON LOW
@@ -149,7 +150,7 @@ void add_piece() {
 }
 
 //Tests piece collision
-bool collision() { 
+bool collision() {
   bool collide = false;
   for (int row = 0; row < 3; row++) {
     if (tetris_map[row + row_count] & (piece[row + (rotate * 3)] << shift_right)) {
@@ -162,19 +163,26 @@ bool collision() {
 
 //Tests if there is a complete row, and initiates a row clear
 void complete_row() {
-  for (int row = 8; row >= 0 ; row--) {
-    if(tetris_map[row] == 0x001F) {
-      tetris_map[row] = 0;
+  int row = 8;
+  for (row; row >= 0; row--) {
+    if (tetris_map[row] == 0x001F) {
+      for (int num = row; num >= 0; num--) {
+        tetris_map[num+1] = tetris_map[num];
+      }
+      row = 8;
+      print_map();
     }
   }
 }
 
+//Initializes a new piece and resets increment values
 void new_piece() {
   rotate = 0;
   row_count = 0;
   shift_right = 2;
   piece = pieces[random(4)];
 }
+
 void setup() {
   Serial.begin(9600);
   for (int i = 0; i < 7; i++) {
@@ -193,11 +201,12 @@ void setup() {
 void loop() {
 
   print_map();
-  
-  int left = digitalRead(4); // Move piece left
-  int right = digitalRead(5); // Move piece right
-  int rotatebutton = digitalRead(6); // Rotate piece
 
+  int left = digitalRead(4); //Move piece left
+  int right = digitalRead(5); //Move piece right
+  int rotatebutton = digitalRead(6); //Rotate piece
+
+  //Left Shift Button
   if (left == LOW) {
     remove_piece();
     Serial.println("LEFT!");
@@ -207,6 +216,8 @@ void loop() {
     }
     delay(10);
   }
+
+  //Right Shift Button
   if (right == LOW) {
     remove_piece();
     Serial.println("RIGHT!");
@@ -216,10 +227,12 @@ void loop() {
     }
     delay(10);
   }
+
+  //Rotate Button
   if (rotatebutton == LOW) {
     remove_piece();
     rotate++;
-    if(collision() == true) {
+    if (collision() == true) {
       rotate--;
     }
     delay(10);
@@ -238,12 +251,12 @@ void loop() {
     print_map();
     complete_row();
     print_map();
-    
+
   } else {
     add_piece();
   }
   print_map();
-  
+
   delay(1100);
-  
+
 }
