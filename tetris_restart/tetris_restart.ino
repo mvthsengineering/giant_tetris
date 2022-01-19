@@ -220,11 +220,10 @@ void loop() {
   //Right Shift Button
   if (right == LOW) {
     remove_piece();
-    Serial.println("RIGHT!");
     shift_right++;
     if (collision() == true) {
       shift_right--;
-    }
+    } 
     delay(10);
   }
 
@@ -234,9 +233,9 @@ void loop() {
     rotate++;
     if (collision() == true) {
       rotate--;
-    }
+    } 
     delay(10);
-  }
+  } */
 
   //The Game
 
@@ -251,7 +250,6 @@ void loop() {
     print_map();
     complete_row();
     print_map();
-
   } else {
     add_piece();
   }
