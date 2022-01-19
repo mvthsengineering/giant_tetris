@@ -163,14 +163,15 @@ bool collision() {
 
 //Tests if there is a complete row, and initiates a row clear
 void complete_row() {
-  int row = 8;
-  for (row; row >= 0; row--) {
-    if (tetris_map[row] == 0x001F) {
-      for (int num = row; num >= 0; num--) {
-        tetris_map[num+1] = tetris_map[num];
+  Serial.println("checking for complete row");
+  for (int checks = 3; checks > 0; checks--) {
+    for (int row = 8; row >= 0; row--) {
+      if (tetris_map[row] == 0x001F) {
+        for (int num = row; num >= 0; num--) {
+          tetris_map[num + 1] = tetris_map[num];
+        }
+        print_map();
       }
-      row = 8;
-      print_map();
     }
   }
 }
@@ -200,6 +201,8 @@ void setup() {
 
 void loop() {
 
+  // There seems to be a problem using buttons, if the code for the buttons is commented out, the game works.
+
   print_map();
 
   int left = digitalRead(4); //Move piece left
@@ -207,9 +210,9 @@ void loop() {
   int rotatebutton = digitalRead(6); //Rotate piece
 
   //Left Shift Button
+
   if (left == LOW) {
     remove_piece();
-    Serial.println("LEFT!");
     shift_right--;
     if (collision() == true) {
       shift_right++;
@@ -223,7 +226,7 @@ void loop() {
     shift_right++;
     if (collision() == true) {
       shift_right--;
-    } 
+    }
     delay(10);
   }
 
@@ -233,9 +236,9 @@ void loop() {
     rotate++;
     if (collision() == true) {
       rotate--;
-    } 
+    }
     delay(10);
-  } */
+  }
 
   //The Game
 
