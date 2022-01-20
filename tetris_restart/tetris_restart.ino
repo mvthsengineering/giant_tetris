@@ -122,6 +122,13 @@ void loop_test() {
   }
 }
 
+//Clears tetris map
+void clear_map() {
+  for(int row = 0; row <= 8; row++) {
+    tetris_map[row] = 0;
+  }
+}
+
 //Prints the game to the tetris map
 void print_map() { //Turns on panels mapped to tetris_map
   for (int row = 0; row < rows; row++) { //While 0 < 7
@@ -167,14 +174,25 @@ void complete_row() {
   for (int checks = 3; checks > 0; checks--) {
     for (int row = 8; row >= 0; row--) {
       if (tetris_map[row] == 0x001F) {
+        Serial.println("row detected");
         for (int num = row; num >= 0; num--) {
-          tetris_map[num + 1] = tetris_map[num];
+          tetris_map[num] = tetris_map[num - 1];
         }
-        print_map();
+        tetris_map[0] = 0;
       }
     }
   }
 }
+
+//Checks if the pieces exceed the top of the tetris map
+/*bool game_over() {
+  bool game = false;
+  if(tetris_map[0] == 1) {
+    clear_map();
+    delay(100);
+    tetris_map[4] = 0x001F;
+  }
+} */
 
 //Initializes a new piece and resets increment values
 void new_piece() {
@@ -201,8 +219,6 @@ void setup() {
 
 void loop() {
 
-  // There seems to be a problem using buttons, if the code for the buttons is commented out, the game works.
-
   print_map();
 
   int left = digitalRead(4); //Move piece left
@@ -210,7 +226,6 @@ void loop() {
   int rotatebutton = digitalRead(6); //Rotate piece
 
   //Left Shift Button
-
   if (left == LOW) {
     remove_piece();
     shift_right--;
@@ -224,6 +239,9 @@ void loop() {
   if (right == LOW) {
     remove_piece();
     shift_right++;
+    if(shift_right > 3) {
+      shift_right--; 
+    }
     if (collision() == true) {
       shift_right--;
     }
@@ -234,6 +252,9 @@ void loop() {
   if (rotatebutton == LOW) {
     remove_piece();
     rotate++;
+    if(rotate > 3) {
+      rotate = 0;
+    }
     if (collision() == true) {
       rotate--;
     }
@@ -241,23 +262,28 @@ void loop() {
   }
 
   //The Game
-
+  
   remove_piece(); // Remove piece to ensure no collision
 
-  row_count++; // Moves the row down
-  if (collision() == true) {
-    row_count--;
-    add_piece();
-    new_piece();
-    row_count--;
-    print_map();
-    complete_row();
-    print_map();
+  row_count++; // Moves the piece down
+  
+  if (collision() == true) { 
+
+    //game_over(); //Checks if game is over
+    
+    row_count--; // Stops the piece at the bottom
+    add_piece(); // Sets piece to the tetris map
+    complete_row(); // Checks and clears any full rows
+
+    new_piece(); // Initializes new piece
+  
+    row_count--; // Correct position for the piece
+    
   } else {
     add_piece();
   }
   print_map();
 
-  delay(1100);
+  delay(1000);
 
 }
