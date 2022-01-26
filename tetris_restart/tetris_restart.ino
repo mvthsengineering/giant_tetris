@@ -13,6 +13,8 @@ uint8_t row_count = 0;
 uint8_t shift_right = 2;
 int8_t rotate = 0;
 
+int points = 0;
+
 uint16_t tetris_map [10] = { //Array holding values for each row on the tetris board (Hexadecimal)
   0x0000,
   0x0000,
@@ -124,8 +126,15 @@ void loop_test() {
 
 //Clears tetris map
 void clear_map() {
-  for(int row = 0; row <= 8; row++) {
-    tetris_map[row] = 0;
+  for (int row = 0; row <= 8; row++) {
+    tetris_map[row] = 0; //Resets each row to 0
+  }
+}
+
+//Fills tetris map
+void fill_map() {
+  for (int row = 0; row <= 8; row++) {
+    tetris_map[row] = 0x001F; //Sets each row to full
   }
 }
 
@@ -151,7 +160,7 @@ void remove_piece() {
 
 //Adds piece to tetris map and moves pieces down
 void add_piece() {
-  for (int num = 0; num < 3; num++) {
+  for (int num = 0; num < 3; num++) { //Sets the rows of the tetris map following the row count to the current piece
     tetris_map[num + row_count] |= (piece[num + (rotate * 3)] << shift_right);
   }
 }
@@ -162,37 +171,81 @@ bool collision() {
   for (int row = 0; row < 3; row++) {
     if (tetris_map[row + row_count] & (piece[row + (rotate * 3)] << shift_right)) {
       collide = true;
-      Serial.println("collision");
     }
   }
   return collide;
 }
 
-//Tests if there is a complete row, and initiates a row clear
-void complete_row() {
-  Serial.println("checking for complete row");
-  for (int checks = 3; checks > 0; checks--) {
-    for (int row = 8; row >= 0; row--) {
-      if (tetris_map[row] == 0x001F) {
-        Serial.println("row detected");
-        for (int num = row; num >= 0; num--) {
-          tetris_map[num] = tetris_map[num - 1];
-        }
-        tetris_map[0] = 0;
-      }
-    }
+//Animation for when a row is completed
+void row_animation(int row) {
+  for (int x = 0; x < 2; x++) {
+    tetris_map[row] = 0;
+    print_map();
+    delay(200);
+    tetris_map[row] = 0x001F;
+    print_map();
+    delay(200);
   }
 }
 
-//Checks if the pieces exceed the top of the tetris map
-/*bool game_over() {
-  bool game = false;
-  if(tetris_map[0] == 1) {
-    clear_map();
-    delay(100);
-    tetris_map[4] = 0x001F;
+//Tests if there is a complete row, and initiates a row clear
+void complete_row() {
+  int completed_rows = 0;
+  for (int checks = 3; checks > 0; checks--) { //Checks for complete rows three times, the most amount of rows that can be completed at once
+    for (int row = 8; row >= 0; row--) { //Checks each tetris row, starting with the bottom
+      if (tetris_map[row] == 0x001F) { //If a row is full, the value will equal 0x001F
+        completed_rows++;
+        row_animation(row);
+        for (int num = row; num >= 0; num--) {
+          tetris_map[num] = tetris_map[num - 1]; //Make the rows fall to the detected row
+        }
+        tetris_map[0] = 0; //Ensures no extraneous pieces are added to the tetris board
+      }
+    }
   }
-} */
+  
+  if (completed_rows == 1) { //Point tracking system in accordance with amount of rows completed
+    points += 1;
+  }
+  if (completed_rows == 2) {
+    points += 4;
+  }
+  if (completed_rows == 3) {
+    points += 7;
+  }
+  completed_rows = 0;
+}
+
+//Checks if the pieces exceed the top of the tetris map
+bool game_over() {
+  bool game = false;
+  if (tetris_map[2] > 0) { //If the top row is equal to a piece, game over.
+    game = true;
+  }
+  return game;
+}
+
+void ending() {
+  Serial.println("Game over!");
+  delay(1000);
+  Serial.print("Player, you had ");
+  delay(1000);
+  Serial.print(points);
+  Serial.println(" points!");
+  Serial.println();
+  delay(1000);
+  for (int x = 0; x < 3; x++) {
+    clear_map();
+    print_map();
+    delay(400);
+    fill_map();
+    print_map();
+    delay(400);
+  }
+  clear_map();
+  print_map();
+  delay(1200);
+}
 
 //Initializes a new piece and resets increment values
 void new_piece() {
@@ -215,6 +268,12 @@ void setup() {
   pinMode(6, INPUT_PULLUP);
 
   new_piece();
+  Serial.println("Tetris, by Dylan Smith");
+  delay(790);
+  Serial.println("2022");
+  Serial.println();
+  delay(790);
+  Serial.println("--------New-Game--------");
 }
 
 void loop() {
@@ -224,6 +283,8 @@ void loop() {
   int left = digitalRead(4); //Move piece left
   int right = digitalRead(5); //Move piece right
   int rotatebutton = digitalRead(6); //Rotate piece
+
+  //--------------------------Buttons-----------------------------------------
 
   //Left Shift Button
   if (left == LOW) {
@@ -239,8 +300,17 @@ void loop() {
   if (right == LOW) {
     remove_piece();
     shift_right++;
-    if(shift_right > 3) {
-      shift_right--; 
+    if ((rotate == 1 || rotate == 3) && shift_right == 3) { //Stops piece from leaving boundary when rotated
+      shift_right--;
+    }
+    if (shift_right > 3) { //If a piece is at the rightmost point of the tetris board, do not exceed the position limit of 3
+      if (piece == pieces[2]) { //There was an issue pertaining to the "I" piece, this operator makes it so the "I" can go all the way right
+        if (shift_right > 4) {
+          shift_right--; //Ensures the "I" piece doesn't exceed the boundary
+        }
+        shift_right++;
+      }
+      shift_right--;
     }
     if (collision() == true) {
       shift_right--;
@@ -252,7 +322,10 @@ void loop() {
   if (rotatebutton == LOW) {
     remove_piece();
     rotate++;
-    if(rotate > 3) {
+    if (shift_right == 3) { //Fixes a bug where the piece is allowed to leave the boundary when rotated
+      rotate--;
+    }
+    if (rotate > 3) { //Resets the piece to its original position after going through each rotation
       rotate = 0;
     }
     if (collision() == true) {
@@ -261,24 +334,32 @@ void loop() {
     delay(10);
   }
 
-  //The Game
-  
+  //-----------The-Game-----------------------------------
+
   remove_piece(); // Remove piece to ensure no collision
 
   row_count++; // Moves the piece down
-  
-  if (collision() == true) { 
+
+  if (collision() == true) {
 
     //game_over(); //Checks if game is over
-    
+
     row_count--; // Stops the piece at the bottom
     add_piece(); // Sets piece to the tetris map
     complete_row(); // Checks and clears any full rows
 
     new_piece(); // Initializes new piece
-  
+
     row_count--; // Correct position for the piece
-    
+
+    if (game_over() == true) {
+      ending();
+      points = 0;
+      delay(790);
+      Serial.println();
+      Serial.println("--------New-Game--------");
+    }
+
   } else {
     add_piece();
   }
