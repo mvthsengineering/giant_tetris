@@ -1,4 +1,3 @@
-
 #include <Wire.h> //allows communication with I2C
 #include "Adafruit_MCP23008.h" //Library for MCP23008 Microcontroller
 #define FULL_ON LOW
@@ -203,15 +202,20 @@ void complete_row() {
       }
     }
   }
-  
   if (completed_rows == 1) { //Point tracking system in accordance with amount of rows completed
     points += 1;
+    Serial.print(points);
+    Serial.println(" points");
   }
   if (completed_rows == 2) {
     points += 4;
+    Serial.print(points);
+    Serial.println(" points");
   }
   if (completed_rows == 3) {
     points += 7;
+    Serial.print(points);
+    Serial.println(" points");
   }
   completed_rows = 0;
 }
@@ -265,7 +269,7 @@ void setup() {
   }
   pinMode(4, INPUT_PULLUP);
   pinMode(5, INPUT_PULLUP);
-  pinMode(6, INPUT_PULLUP);
+  pinMode(3, INPUT_PULLUP);
 
   new_piece();
   Serial.println("Tetris, by Dylan Smith");
@@ -282,7 +286,7 @@ void loop() {
 
   int left = digitalRead(4); //Move piece left
   int right = digitalRead(5); //Move piece right
-  int rotatebutton = digitalRead(6); //Rotate piece
+  int rotatebutton = digitalRead(3); //Rotate piece
 
   //--------------------------Buttons-----------------------------------------
 
