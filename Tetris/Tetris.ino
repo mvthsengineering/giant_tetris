@@ -1,5 +1,7 @@
 #include <Wire.h> //allows communication with I2C
 #include "Adafruit_MCP23008.h" //Library for MCP23008 Microcontroller
+#include <EEPROM.h>
+
 #define FULL_ON LOW
 #define FULL_OFF HIGH
 #define ROW_OFFSET 2
@@ -17,9 +19,11 @@ int8_t rotate = 0;
 char Incoming_value = 0; //Value that translates over Serial port to app
 
 long previousMillis = 0;
-long interval = 1000;
+long interval = 900;
 
 int points = 0;
+
+boolean game = false;
 
 uint16_t tetris_map [10] = { //Array holding values for each row on the tetris board (Hexadecimal)
   0x0000,
@@ -289,6 +293,60 @@ void new_piece() {
   piece = pieces[piece_id];
 }
 
+//The mechanics of the game
+void tetris() {
+  unsigned long currentMillis = millis();
+
+  if ((currentMillis - previousMillis) > interval) { //Timer used in replacement for delay, allowing game to run smoothly
+    previousMillis = currentMillis;
+    remove_piece(); //Removes piece so that there is no collision
+    row_count++; //Moves pieces down by incrementing the row
+
+    Serial.print(points); //Serial prints # of points which is read over app
+    Serial.println(" points");
+    piece_display();
+
+    if (collision() == true) {
+
+      game_over(); //Checks if game is over
+
+      row_count--; // Stops the piece at the bottom
+      add_piece(); // Sets piece to the tetris map
+      complete_row(); // Checks and clears any full rows
+
+      new_piece(); // Initializes new piece
+      piece_id = random(3);
+
+      row_count--; // Correct position for the piece
+
+      if (game_over() == true) { //Game Over Event
+        ending();
+
+        //Highscore Tracker
+        if (points > EEPROM.read(0)) {
+          EEPROM.write(2, EEPROM.read(1));
+          EEPROM.write(1, EEPROM.read(0));
+          EEPROM.write(0, points);
+        }
+        else if (points > EEPROM.read(1)) {
+          EEPROM.write(2, EEPROM.read(1));
+          EEPROM.write(1, points);
+        }
+        else if (points > EEPROM.read(2)) {
+          EEPROM.write(2, points);
+        }
+
+        points = 0;
+        game = false;
+      }
+
+    } else {
+      add_piece();
+    }
+    print_map();
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   for (int i = 0; i < 7; i++) {
@@ -315,8 +373,6 @@ void loop() {
   int left = digitalRead(4); //Move piece left
   int right = digitalRead(5); //Move piece right
   int rotatebutton = digitalRead(2); //Rotate piece
-
-  unsigned long currentMillis = millis();
 
   //--------------------------Buttons-----------------------------------------
 
@@ -377,40 +433,23 @@ void loop() {
       print_map();
       delay(180);
     }
+
+    if (Incoming_value == '4') { //Reads when button is pressed
+      game = true; //Starts Tetris Game
+    }
+
+    if (Incoming_value == '5') {
+      Serial.println(EEPROM.read(0));
+      Serial.println(EEPROM.read(1));
+      Serial.println(EEPROM.read(2));
+    }
+
   }
 
   //-----------The-Game-----------------------------------
 
-  if ((currentMillis - previousMillis) > interval) { //Timer used in replacement for delay, allowing game to run smoothly
-    previousMillis = currentMillis;
-    remove_piece(); //Removes piece so that there is no collision
-    row_count++; //Moves pieces down by incrementing the row
-    
-    Serial.print(points); //Serial prints # of points which is read over app
-    Serial.println(" points");
-    piece_display();
-    
-    if (collision() == true) {
-
-      game_over(); //Checks if game is over
-
-      row_count--; // Stops the piece at the bottom
-      add_piece(); // Sets piece to the tetris map
-      complete_row(); // Checks and clears any full rows
-
-      new_piece(); // Initializes new piece
-      piece_id = random(3);
-      
-      row_count--; // Correct position for the piece
-
-      if (game_over() == true) {
-        ending();
-        points = 0;
-      }
-
-    } else {
-      add_piece();
-    }
-    print_map();
+  if (game == true) {
+    tetris();
   }
+
 }
