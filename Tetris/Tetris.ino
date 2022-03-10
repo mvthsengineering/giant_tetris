@@ -22,8 +22,15 @@ long previousMillis = 0;
 long interval = 900;
 
 int points = 0;
+char initialValue[3];
+char initials[5];
 
 boolean game = false;
+boolean highscore = false;
+int highscoreCode = 99;
+int highscoreCode2 = 77;
+
+boolean temp = false;
 
 uint16_t tetris_map [10] = { //Array holding values for each row on the tetris board (Hexadecimal)
   0x0000,
@@ -227,29 +234,37 @@ void complete_row() {
   completed_rows = 0;
 }
 
-//Displays time to Serial port which translates to tetris interface
+//Displays upcoming piece to Serial port which is displayed by tetris interface
 void piece_display() {
   Serial.println();
   if (piece_id == 0) {
     Serial.println("Next piece:  ");
     Serial.println("ooo");
     Serial.println(" o ");
+    Serial.print("|");
+    Serial.println();
   }
   if (piece_id == 1) {
     Serial.println("Next piece:  ");
     Serial.println("oo ");
     Serial.println("     oo");
+    Serial.print("|");
+    Serial.println();
   }
   if (piece_id == 2) {
     Serial.println("Next piece:  ");
     Serial.println(" o ");
     Serial.println(" o ");
     Serial.println(" o ");
+    Serial.print("|");
+    Serial.println();
   }
   if (piece_id == 3) {
     Serial.println("Next piece:  ");
     Serial.println("     oo");
     Serial.println("oo ");
+    Serial.print("|");
+    Serial.println();
   }
 }
 
@@ -262,15 +277,9 @@ bool game_over() {
   return game;
 }
 
+//Game end event
 void ending() {
-  Serial.println("Game over!");
-  delay(1000);
-  Serial.print("Player, you had ");
-  delay(1000);
-  Serial.print(points);
-  Serial.println(" points!");
-  Serial.println();
-  delay(1000);
+  //Ending Animation
   for (int x = 0; x < 3; x++) {
     clear_map();
     print_map();
@@ -324,16 +333,19 @@ void tetris() {
 
         //Highscore Tracker
         if (points > EEPROM.read(0)) {
-          EEPROM.write(2, EEPROM.read(1));
-          EEPROM.write(1, EEPROM.read(0));
-          EEPROM.write(0, points);
+          highscore = true;
+          //EEPROM.write(2, EEPROM.read(1));
+          //EEPROM.write(1, EEPROM.read(0));
+          //EEPROM.write(0, points);
         }
         else if (points > EEPROM.read(1)) {
-          EEPROM.write(2, EEPROM.read(1));
-          EEPROM.write(1, points);
+          highscore = true;
+          //EEPROM.write(2, EEPROM.read(1));
+          //EEPROM.write(1, points);
         }
         else if (points > EEPROM.read(2)) {
-          EEPROM.write(2, points);
+          highscore = true;
+          //EEPROM.write(2, points);
         }
 
         points = 0;
@@ -442,7 +454,14 @@ void loop() {
       Serial.println(EEPROM.read(0));
       Serial.println(EEPROM.read(1));
       Serial.println(EEPROM.read(2));
+      Serial.print("|");
+      Serial.println();
     }
+
+    /*for (int i = 0; i < 3; i++) {
+      initialValue[i] = Serial.read();
+      initials[i] = initialValue[i];
+      } */
 
   }
 
@@ -450,6 +469,15 @@ void loop() {
 
   if (game == true) {
     tetris();
+  }
+
+  if (highscore == true) {
+    Serial.print(highscoreCode);
+    Serial.print("|");
+    Serial.print(highscoreCode2);
+    highscore = false;
+    delay(1500);
+    Serial.println("Press Start Game");
   }
 
 }
