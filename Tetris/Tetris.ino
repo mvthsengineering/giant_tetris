@@ -1,10 +1,17 @@
+
 #include <Wire.h> //allows communication with I2C
 #include "Adafruit_MCP23008.h" //Library for MCP23008 Microcontroller
 #include <EEPROM.h>
 
+#define REST 0
+#define GAME 1
+#define HIGHSCORE 2
+
 #define FULL_ON LOW
 #define FULL_OFF HIGH
 #define ROW_OFFSET 2
+
+uint8_t state = REST;
 
 Adafruit_MCP23008 mcp[8]; //0 through 7 index values
 
@@ -25,8 +32,8 @@ int points = 0;
 char initialValue[3];
 char initials[5];
 
-boolean game = false;
-boolean highscore = false;
+int placement = 0;
+boolean highscoreCase = false;
 int highscoreCode = 99;
 int highscoreCode2 = 77;
 
@@ -270,15 +277,21 @@ void piece_display() {
 
 //Checks if the pieces exceed the top of the tetris map
 bool game_over() {
-  bool game = false;
+  bool gameOn = false;
   if (tetris_map[2] > 0) { //If the top row is equal to a piece, game over.
-    game = true;
+    gameOn = true;
   }
-  return game;
+  return gameOn;
 }
 
 //Game end event
 void ending() {
+  //Ending Message
+  Serial.print(points);
+  Serial.println(" points!");
+  Serial.print("|");
+  Serial.println();
+  delay(1000);
   //Ending Animation
   for (int x = 0; x < 3; x++) {
     clear_map();
@@ -302,63 +315,6 @@ void new_piece() {
   piece = pieces[piece_id];
 }
 
-//The mechanics of the game
-void tetris() {
-  unsigned long currentMillis = millis();
-
-  if ((currentMillis - previousMillis) > interval) { //Timer used in replacement for delay, allowing game to run smoothly
-    previousMillis = currentMillis;
-    remove_piece(); //Removes piece so that there is no collision
-    row_count++; //Moves pieces down by incrementing the row
-
-    Serial.print(points); //Serial prints # of points which is read over app
-    Serial.println(" points");
-    piece_display();
-
-    if (collision() == true) {
-
-      game_over(); //Checks if game is over
-
-      row_count--; // Stops the piece at the bottom
-      add_piece(); // Sets piece to the tetris map
-      complete_row(); // Checks and clears any full rows
-
-      new_piece(); // Initializes new piece
-      piece_id = random(3);
-
-      row_count--; // Correct position for the piece
-
-      if (game_over() == true) { //Game Over Event
-        ending();
-
-        //Highscore Tracker
-        if (points > EEPROM.read(0)) {
-          highscore = true;
-          //EEPROM.write(2, EEPROM.read(1));
-          //EEPROM.write(1, EEPROM.read(0));
-          //EEPROM.write(0, points);
-        }
-        else if (points > EEPROM.read(1)) {
-          highscore = true;
-          //EEPROM.write(2, EEPROM.read(1));
-          //EEPROM.write(1, points);
-        }
-        else if (points > EEPROM.read(2)) {
-          highscore = true;
-          //EEPROM.write(2, points);
-        }
-
-        points = 0;
-        game = false;
-      }
-
-    } else {
-      add_piece();
-    }
-    print_map();
-  }
-}
-
 void setup() {
   Serial.begin(9600);
   for (int i = 0; i < 7; i++) {
@@ -367,13 +323,9 @@ void setup() {
       mcp[i].pinMode(z, OUTPUT); //sets up each pin output
     }
   }
-  pinMode(4, INPUT_PULLUP);
-  pinMode(5, INPUT_PULLUP);
-  pinMode(2, INPUT_PULLUP);
-
-  pinMode(7, OUTPUT); //Temporary until arduino shield is created
-  digitalWrite(7, HIGH);
-
+  EEPROM.write(0, 0);
+  state = HIGHSCORE;
+  highscoreCase = true;
   piece_id = random(4);
   new_piece();
   add_piece();
@@ -381,103 +333,173 @@ void setup() {
 }
 
 void loop() {
+  switch (state) {
 
-  int left = digitalRead(4); //Move piece left
-  int right = digitalRead(5); //Move piece right
-  int rotatebutton = digitalRead(2); //Rotate piece
-
-  //--------------------------Buttons-----------------------------------------
-
-  if (Serial.available() > 0)
-  {
-    Incoming_value = Serial.read();
-
-    if (Incoming_value == '8') { //Reads when button is pressed
-      remove_piece();
-      shift_right--;
-      if (shift_right < 0) {
-        shift_right = 0;
-      }
-      if (collision() == true) {
-        shift_right++;
-      }
-      add_piece();
-      print_map();
-      delay(180);
-    }
-
-    if (Incoming_value == '9') { //Reads when button is pressed
-      remove_piece();
-      shift_right++;
-      if ((rotate == 1 || rotate == 3) && shift_right == 3) { //Stops piece from leaving boundary when rotated
-        shift_right--;
-      }
-      if (shift_right > 3) { //If a piece is at the rightmost point of the tetris board, do not exceed the position limit of 3
-        if (piece == pieces[2]) { //There was an issue pertaining to the "I" piece, this operator makes it so the "I" can go all the way right
-          if (shift_right > 4) {
-            shift_right--; //Ensures the "I" piece doesn't exceed the boundary
+    case REST:
+      {
+        if (Serial.available() > 0)
+        {
+          Incoming_value = Serial.read();
+          if (Incoming_value == '4') { //Reads when button is pressed
+            state = GAME; //Starts Tetris Game
           }
-          shift_right++;
+          if (Incoming_value == '5') {
+            Serial.print(EEPROM.read(0));
+            Serial.print(" ");
+            Serial.print(initials);
+            Serial.print("|");
+            Serial.println();
+          }
         }
-        shift_right--;
       }
-      if (collision() == true) {
-        shift_right--;
+      break;
+
+    case GAME:
+      {
+        unsigned long currentMillis = millis();
+
+        if (Serial.available() > 0)
+        {
+          Incoming_value = Serial.read();
+
+          //Shift left button
+          if (Incoming_value == '8') { //Reads when button is pressed
+            remove_piece();
+            shift_right--;
+            if (shift_right < 0) {
+              shift_right = 0;
+            }
+            if (collision() == true) {
+              shift_right++;
+            }
+            add_piece();
+            print_map();
+            delay(180);
+          }
+
+          //Shift right button
+          if (Incoming_value == '9') { //Reads when button is pressed
+            remove_piece();
+            shift_right++;
+            if ((rotate == 1 || rotate == 3) && shift_right == 3) { //Stops piece from leaving boundary when rotated
+              shift_right--;
+            }
+            if (shift_right > 3) { //If a piece is at the rightmost point of the tetris board, do not exceed the position limit of 3
+              if (piece == pieces[2]) { //There was an issue pertaining to the "I" piece, this operator makes it so the "I" can go all the way right
+                if (shift_right > 4) {
+                  shift_right--; //Ensures the "I" piece doesn't exceed the boundary
+                }
+                shift_right++;
+              }
+              shift_right--;
+            }
+            if (collision() == true) {
+              shift_right--;
+            }
+            add_piece();
+            print_map();
+            delay(180);
+          }
+
+          //Rotate Button
+          if (Incoming_value == '7') { //Reads when button is pressed
+            remove_piece();
+            rotate++;
+            if (shift_right == 3) { //Fixes a bug where the piece is allowed to leave the boundary when rotated
+              rotate--;
+            }
+            if (rotate > 3) { //Resets the piece to its original position after going through each rotation
+              rotate = 0;
+            }
+            if (collision() == true) {
+              rotate--;
+            }
+            add_piece();
+            print_map();
+            delay(180);
+          }
+        }
+
+        if ((currentMillis - previousMillis) > interval) { //Timer used in replacement for delay, allowing game to run smoothly
+          previousMillis = currentMillis;
+          remove_piece(); //Removes piece so that there is no collision
+          row_count++; //Moves pieces down by incrementing the row
+
+          Serial.print(points); //Serial prints # of points which is read over app
+          Serial.println(" points");
+          piece_display();
+
+          if (collision() == true) {
+
+            game_over(); //Checks if game is over
+
+            row_count--; // Stops the piece at the bottom
+            add_piece(); // Sets piece to the tetris map
+            complete_row(); // Checks and clears any full rows
+
+            new_piece(); // Initializes new piece
+            piece_id = random(3);
+
+            row_count--; // Correct position for the piece
+
+            if (game_over() == true) { //Game Over Event
+              ending();
+              delay(1000);
+              //Highscore Tracker
+              if (points > EEPROM.read(0)) {
+                state = HIGHSCORE;
+                highscoreCase = true;
+                placement = 0;
+                EEPROM.write(2, EEPROM.read(1));
+                EEPROM.write(1, EEPROM.read(0));
+              }
+               else if (points > EEPROM.read(1)) {
+                 state = HIGHSCORE;
+                 highscoreCase = true;
+                 placement = 1;
+                 EEPROM.write(2, EEPROM.read(1));
+                }
+                else if (points > EEPROM.read(2)) {
+                 state = HIGHSCORE;
+                 highscoreCase = true;
+                 placement = 2;
+                } else {
+                 state = REST;
+                 points = 0;
+                } 
+            }
+
+          } else {
+            add_piece();
+          }
+          print_map();
+        }
       }
-      add_piece();
-      print_map();
-      delay(180);
-    }
+      break;
 
-    if (Incoming_value == '7') { //Reads when button is pressed
-      remove_piece();
-      rotate++;
-      if (shift_right == 3) { //Fixes a bug where the piece is allowed to leave the boundary when rotated
-        rotate--;
+    case HIGHSCORE:
+      {
+        if (highscoreCase == true) {
+          Serial.print(highscoreCode);
+          Serial.print("|");
+          Serial.print(highscoreCode2);
+          Serial.println();
+          highscoreCase = false;
+          delay(1000);
+          Serial.print("Press Start");
+          Serial.print("|");
+          Serial.println();
+        }
+        if (Serial.available() > 0) {
+          for (int i = 0; i < 3; i++) {
+            initialValue[i] = Serial.read();
+            initials[i] = initialValue[i];
+            delay(50);
+          }
+          EEPROM.write(placement)
+          state = REST;
+        }
+        break;
       }
-      if (rotate > 3) { //Resets the piece to its original position after going through each rotation
-        rotate = 0;
-      }
-      if (collision() == true) {
-        rotate--;
-      }
-      add_piece();
-      print_map();
-      delay(180);
-    }
-
-    if (Incoming_value == '4') { //Reads when button is pressed
-      game = true; //Starts Tetris Game
-    }
-
-    if (Incoming_value == '5') {
-      Serial.println(EEPROM.read(0));
-      Serial.println(EEPROM.read(1));
-      Serial.println(EEPROM.read(2));
-      Serial.print("|");
-      Serial.println();
-    }
-
-    /*for (int i = 0; i < 3; i++) {
-      initialValue[i] = Serial.read();
-      initials[i] = initialValue[i];
-      } */
-
   }
-
-  //-----------The-Game-----------------------------------
-
-  if (game == true) {
-    tetris();
-  }
-
-  if (highscore == true) {
-    Serial.print(highscoreCode);
-    Serial.print("|");
-    Serial.print(highscoreCode2);
-    highscore = false;
-    delay(1500);
-    Serial.println("Press Start Game");
-  }
-
 }
