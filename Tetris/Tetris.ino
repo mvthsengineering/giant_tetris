@@ -30,7 +30,7 @@ long interval = 900;
 
 int points = 0;
 char initialValue[3];
-char initials[5];
+char initials[3];
 
 int placement = 0;
 boolean highscoreCase = false;
@@ -323,9 +323,6 @@ void setup() {
       mcp[i].pinMode(z, OUTPUT); //sets up each pin output
     }
   }
-  EEPROM.write(0, 0);
-  state = HIGHSCORE;
-  highscoreCase = true;
   piece_id = random(4);
   new_piece();
   add_piece();
@@ -344,9 +341,14 @@ void loop() {
             state = GAME; //Starts Tetris Game
           }
           if (Incoming_value == '5') {
-            Serial.print(EEPROM.read(0));
-            Serial.print(" ");
-            Serial.print(initials);
+            for (int i = 0; i < 12; i += 4) {
+              Serial.print(EEPROM.read(i));
+              Serial.print(" ");
+              Serial.print((char)EEPROM.read(i + 1));
+              Serial.print((char)EEPROM.read(i + 2));
+              Serial.print((char)EEPROM.read(i + 3));
+              Serial.println();
+            }
             Serial.print("|");
             Serial.println();
           }
@@ -450,23 +452,30 @@ void loop() {
                 state = HIGHSCORE;
                 highscoreCase = true;
                 placement = 0;
-                EEPROM.write(2, EEPROM.read(1));
-                EEPROM.write(1, EEPROM.read(0));
-              }
-               else if (points > EEPROM.read(1)) {
-                 state = HIGHSCORE;
-                 highscoreCase = true;
-                 placement = 1;
-                 EEPROM.write(2, EEPROM.read(1));
+                for (int i = 1; i <= 4; i++) { //Bumps highscore placements down
+                  EEPROM.write(7 + i, EEPROM.read(3 + i));
+                  EEPROM.write(3 + i, EEPROM.read(i - 1));
                 }
-                else if (points > EEPROM.read(2)) {
-                 state = HIGHSCORE;
-                 highscoreCase = true;
-                 placement = 2;
-                } else {
-                 state = REST;
-                 points = 0;
-                } 
+              }
+              else if (points > EEPROM.read(4)) {
+                state = HIGHSCORE;
+                highscoreCase = true;
+                placement = 4;
+                for (int i = 1; i <= 4; i++) { //Bumps highscore placements down
+                  EEPROM.write(7 + i, EEPROM.read(3 + i));
+                }
+              }
+              else if (points > EEPROM.read(8)) {
+                state = HIGHSCORE;
+                highscoreCase = true;
+                placement = 8;
+              } else {
+                Serial.print("Press Start");
+                Serial.print("|");
+                Serial.println();
+                state = REST;
+                points = 0;
+              }
             }
 
           } else {
@@ -479,8 +488,8 @@ void loop() {
 
     case HIGHSCORE:
       {
-        if (highscoreCase == true) {
-          Serial.print(highscoreCode);
+        if (highscoreCase == true) { //This if statement ensures the highscore code is only sent once
+          Serial.print(highscoreCode); //Serial prints a code which is parsed by app and initiates highscore event
           Serial.print("|");
           Serial.print(highscoreCode2);
           Serial.println();
@@ -490,13 +499,17 @@ void loop() {
           Serial.print("|");
           Serial.println();
         }
-        if (Serial.available() > 0) {
+        if (Serial.available() > 0) { //Reads initials typed by user on app
           for (int i = 0; i < 3; i++) {
             initialValue[i] = Serial.read();
-            initials[i] = initialValue[i];
+            initials[i] = initialValue[i]; //Collects each initial
             delay(50);
-          }
-          EEPROM.write(placement)
+          } //Adds Highscore with initials
+          EEPROM.write(placement, points);
+          EEPROM.write(placement + 1, initials[0]);
+          EEPROM.write(placement + 2, initials[1]);
+          EEPROM.write(placement + 3, initials[2]);
+          points = 0;
           state = REST;
         }
         break;
