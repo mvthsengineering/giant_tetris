@@ -1,4 +1,3 @@
-
 #include <Wire.h> //allows communication with I2C
 #include "Adafruit_MCP23008.h" //Library for MCP23008 Microcontroller
 #include <EEPROM.h>
@@ -10,6 +9,7 @@
 #define FULL_ON LOW
 #define FULL_OFF HIGH
 #define ROW_OFFSET 2
+#define COL_OFFSET 1
 
 uint8_t state = REST;
 
@@ -26,7 +26,7 @@ int8_t rotate = 0;
 char Incoming_value = 0; //Value that translates over Serial port to app
 
 long previousMillis = 0;
-long interval = 900;
+long interval = 800;
 
 int points = 0;
 char initialValue[3];
@@ -37,28 +37,37 @@ boolean highscoreCase = false;
 int highscoreCode = 99;
 int highscoreCode2 = 77;
 
-boolean temp = false;
-
 uint16_t tetris_map [10] = { //Array holding values for each row on the tetris board (Hexadecimal)
-  0x0000,
-  0x0000,
+  0x0041,
+  0x0041,
 
-  0x0000,  //
-  0x0000,  //
-  0x0000,  //
-  0x0000,  //
-  0x0000,  //
-  0x0000,  //
-  0x0000,  //
+  0x0041, 
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
+
+  0xFFFF,
+};
+
+uint16_t game_map [10] = { //This is the map with all the boundaries required for tetris to operate correctly
+  0x0041,
+  0x0041,
+
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
+  0x0041,  
 
   0xFFFF,  // Bottom Barrier
 };
 
 const char piece_T[12] = { //Piece "T"
-  B00000001,
-  B00000011,
-  B00000001,
-
   B00000010,
   B00000111,
   B00000000,
@@ -69,9 +78,17 @@ const char piece_T[12] = { //Piece "T"
 
   B00000000,
   B00000111,
-  B00000010
+  B00000010,
+
+  B00000010,
+  B00000110,
+  B00000010,
 };
 const char piece_Z[12] = { //Piece "Z"
+  B00000011,
+  B00000110,
+  B00000000,
+
   B00000010,
   B00000011,
   B00000001,
@@ -83,29 +100,29 @@ const char piece_Z[12] = { //Piece "Z"
   B00000010,
   B00000011,
   B00000001,
-
-  B00000000,
-  B00000011,
-  B00000110
 };
 const char piece_I[12] = { //Piece "I"
-  B00000001,
-  B00000001,
-  B00000001,
+  B00000010,
+  B00000010,
+  B00000010,
 
   B00000000,
   B00000111,
   B00000000,
 
-  B00000001,
-  B00000001,
-  B00000001,
+  B00000010,
+  B00000010,
+  B00000010,
 
   B00000000,
   B00000111,
-  B00000000
+  B00000000,
 };
 const char piece_L[12] = { //Backwards "Z"
+  B00000110,
+  B00000011,
+  B00000000,
+
   B00000001,
   B00000011,
   B00000010,
@@ -117,10 +134,6 @@ const char piece_L[12] = { //Backwards "Z"
   B00000001,
   B00000011,
   B00000010,
-
-  B00000000,
-  B00000110,
-  B00000011
 };
 
 const char *pieces[4] = {
@@ -158,7 +171,14 @@ void clear_map() {
 //Fills tetris map
 void fill_map() {
   for (int row = 0; row <= 8; row++) {
-    tetris_map[row] = 0x001F; //Sets each row to full
+    tetris_map[row] = 0xFFFF; //Sets each row to full
+  }
+}
+
+//Initializes tetris to game map with boundaries
+void start_map() {
+  for (int i = 0; i < 10; i++) {
+    tetris_map[i] = game_map[i];
   }
 }
 
@@ -166,7 +186,7 @@ void fill_map() {
 void print_map() { //Turns on panels mapped to tetris_map
   for (int row = 0; row < rows; row++) { //While 0 < 7
     for (int col = 0; col < columns; col++) { //While 0 < 5
-      if (tetris_map[row + ROW_OFFSET] & 1 << col) { //If a certain panel has a 1,
+      if (tetris_map[row + ROW_OFFSET] & 1 << col + COL_OFFSET) { //If a certain panel has a 1,
         print_panel(col, row, FULL_ON); //Turn on panel at the column and row
       } else {
         print_panel(col, row, FULL_OFF); //Turn off panel at the column and row
@@ -192,7 +212,6 @@ void add_piece() {
 //Tests piece collision
 bool collision() {
   bool collide = false;
-  //Serial.println("collision");
   for (int row = 0; row < 3; row++) {
     if (tetris_map[row + row_count] & (piece[row + (rotate * 3)] << shift_right)) {
       collide = true;
@@ -207,7 +226,7 @@ void row_animation(int row) {
     tetris_map[row] = 0;
     print_map();
     delay(200);
-    tetris_map[row] = 0x001F;
+    tetris_map[row] = 0x00FF;
     print_map();
     delay(200);
   }
@@ -218,11 +237,14 @@ void complete_row() {
   int completed_rows = 0;
   for (int checks = 3; checks > 0; checks--) { //Checks for complete rows three times, the most amount of rows that can be completed at once
     for (int row = 8; row >= 0; row--) { //Checks each tetris row, starting with the bottom
-      if (tetris_map[row] == 0x001F) { //If a row is full, the value will equal 0x001F
+      if (tetris_map[row] == 0x007F) { //If a row is full, the value will equal 0x007F
         completed_rows++;
         row_animation(row);
         for (int num = row; num >= 0; num--) {
-          tetris_map[num] = tetris_map[num - 1]; //Make the rows fall to the detected row
+          tetris_map[num] = tetris_map[num - 1]; //Makes the rows fall to the detected row
+        }
+        for (int i = 0; i < 10; i++) {
+          tetris_map[i] |= game_map[i]; //Contains the game maps boundaries
         }
         tetris_map[0] = 0; //Ensures no extraneous pieces are added to the tetris board
         row++;
@@ -241,7 +263,7 @@ void complete_row() {
   completed_rows = 0;
 }
 
-//Displays upcoming piece to Serial port which is displayed by tetris interface
+//Displays upcoming piece to Serial port which is displayed by tetris app
 void piece_display() {
   Serial.println();
   if (piece_id == 0) {
@@ -278,7 +300,7 @@ void piece_display() {
 //Checks if the pieces exceed the top of the tetris map
 bool game_over() {
   bool gameOn = false;
-  if (tetris_map[2] > 0) { //If the top row is equal to a piece, game over.
+  if (tetris_map[2] > 0x0041) { //If the top row has a value greater than it already has, game over.
     gameOn = true;
   }
   return gameOn;
@@ -301,7 +323,7 @@ void ending() {
     print_map();
     delay(400);
   }
-  clear_map();
+  start_map();
   print_map();
   delay(1200);
 }
@@ -311,7 +333,6 @@ void new_piece() {
   rotate = 0;
   row_count = 0;
   shift_right = 2;
-  //piece_id = random(3);
   piece = pieces[piece_id];
 }
 
@@ -323,13 +344,22 @@ void setup() {
       mcp[i].pinMode(z, OUTPUT); //sets up each pin output
     }
   }
-  piece_id = random(4);
+  piece_id = random(3);
   new_piece();
   add_piece();
   print_map();
 }
 
 void loop() {
+  /* * Tetris Game consists of three states
+   *  REST: The Tetris main menu, you are able to start the game and view highscore.
+   *  
+   *  GAME: The Tetris game, where pieces are constantly being placed, removed, rotated, and shifted on the tetris map.
+   *        When the game ends you may be able to put in your initials if a highscore is triggered
+   *        
+   *  HIGHSCORE: A code is sent through the serial port and registered by the Tetris app.
+   *             This causes the app to prompt the user for their initials, saving this information along with the amount of points
+   */
   switch (state) {
 
     case REST:
@@ -337,11 +367,12 @@ void loop() {
         if (Serial.available() > 0)
         {
           Incoming_value = Serial.read();
+
           if (Incoming_value == '4') { //Reads when button is pressed
             state = GAME; //Starts Tetris Game
           }
           if (Incoming_value == '5') {
-            for (int i = 0; i < 12; i += 4) {
+            for (int i = 0; i < 12; i += 4) { //Displays game highscores and initials
               Serial.print(EEPROM.read(i));
               Serial.print(" ");
               Serial.print((char)EEPROM.read(i + 1));
@@ -368,11 +399,9 @@ void loop() {
           if (Incoming_value == '8') { //Reads when button is pressed
             remove_piece();
             shift_right--;
-            if (shift_right < 0) {
-              shift_right = 0;
-            }
             if (collision() == true) {
               shift_right++;
+              //Serial.println("left collision");
             }
             add_piece();
             print_map();
@@ -383,20 +412,9 @@ void loop() {
           if (Incoming_value == '9') { //Reads when button is pressed
             remove_piece();
             shift_right++;
-            if ((rotate == 1 || rotate == 3) && shift_right == 3) { //Stops piece from leaving boundary when rotated
-              shift_right--;
-            }
-            if (shift_right > 3) { //If a piece is at the rightmost point of the tetris board, do not exceed the position limit of 3
-              if (piece == pieces[2]) { //There was an issue pertaining to the "I" piece, this operator makes it so the "I" can go all the way right
-                if (shift_right > 4) {
-                  shift_right--; //Ensures the "I" piece doesn't exceed the boundary
-                }
-                shift_right++;
-              }
-              shift_right--;
-            }
             if (collision() == true) {
               shift_right--;
+              //Serial.println("right collision");
             }
             add_piece();
             print_map();
@@ -407,14 +425,12 @@ void loop() {
           if (Incoming_value == '7') { //Reads when button is pressed
             remove_piece();
             rotate++;
-            if (shift_right == 3) { //Fixes a bug where the piece is allowed to leave the boundary when rotated
-              rotate--;
-            }
-            if (rotate > 3) { //Resets the piece to its original position after going through each rotation
+            if (rotate > 3) {
               rotate = 0;
             }
             if (collision() == true) {
               rotate--;
+              //Serial.println("rotate collision");
             }
             add_piece();
             print_map();
@@ -430,6 +446,7 @@ void loop() {
           Serial.print(points); //Serial prints # of points which is read over app
           Serial.println(" points");
           piece_display();
+          Serial.println(piece_id);
 
           if (collision() == true) {
 
@@ -440,7 +457,7 @@ void loop() {
             complete_row(); // Checks and clears any full rows
 
             new_piece(); // Initializes new piece
-            piece_id = random(3);
+            piece_id = random(4);
 
             row_count--; // Correct position for the piece
 
