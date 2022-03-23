@@ -270,30 +270,22 @@ void piece_display() {
     Serial.println("Next piece:  ");
     Serial.println("ooo");
     Serial.println(" o ");
-    Serial.print("|");
-    Serial.println();
   }
   if (piece_id == 1) {
     Serial.println("Next piece:  ");
     Serial.println("oo ");
     Serial.println("     oo");
-    Serial.print("|");
-    Serial.println();
   }
   if (piece_id == 2) {
     Serial.println("Next piece:  ");
     Serial.println(" o ");
     Serial.println(" o ");
     Serial.println(" o ");
-    Serial.print("|");
-    Serial.println();
   }
   if (piece_id == 3) {
     Serial.println("Next piece:  ");
     Serial.println("     oo");
     Serial.println("oo ");
-    Serial.print("|");
-    Serial.println();
   }
 }
 
@@ -391,6 +383,7 @@ void loop() {
       {
         unsigned long currentMillis = millis();
 
+//-------------------Buttons-------------------------
         if (Serial.available() > 0)
         {
           Incoming_value = Serial.read();
@@ -438,6 +431,7 @@ void loop() {
           }
         }
 
+//-----------------Game-Mechanics----------------------
         if ((currentMillis - previousMillis) > interval) { //Timer used in replacement for delay, allowing game to run smoothly
           previousMillis = currentMillis;
           remove_piece(); //Removes piece so that there is no collision
@@ -446,7 +440,8 @@ void loop() {
           Serial.print(points); //Serial prints # of points which is read over app
           Serial.println(" points");
           piece_display();
-          Serial.println(piece_id);
+          Serial.print("|");
+          Serial.println();
 
           if (collision() == true) {
 
@@ -467,8 +462,8 @@ void loop() {
               //Highscore Tracker
               if (points > EEPROM.read(0)) {
                 state = HIGHSCORE;
-                highscoreCase = true;
-                placement = 0;
+                highscoreCase = true; //This boolean variable is used in HIGHSCORE state
+                placement = 0; //Placement value determines where values will be placed on the EEPROM
                 for (int i = 1; i <= 4; i++) { //Bumps highscore placements down
                   EEPROM.write(7 + i, EEPROM.read(3 + i));
                   EEPROM.write(3 + i, EEPROM.read(i - 1));
@@ -494,7 +489,6 @@ void loop() {
                 points = 0;
               }
             }
-
           } else {
             add_piece();
           }
@@ -521,7 +515,7 @@ void loop() {
             initialValue[i] = Serial.read();
             initials[i] = initialValue[i]; //Collects each initial
             delay(50);
-          } //Adds Highscore with initials
+          } //Adds Highscore with initials          
           EEPROM.write(placement, points);
           EEPROM.write(placement + 1, initials[0]);
           EEPROM.write(placement + 2, initials[1]);
