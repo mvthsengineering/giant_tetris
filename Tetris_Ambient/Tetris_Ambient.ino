@@ -441,6 +441,7 @@ void loop() {
           print_map();
         }
         if(state == GAME) {
+          points = 0;
           game_start();
         }
       }
