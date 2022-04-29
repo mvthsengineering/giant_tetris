@@ -319,7 +319,7 @@ void ending() {
   }
   start_map();
   print_map();
-  delay(1200);
+  delay(500);
 }
 
 //Game start animation
@@ -364,12 +364,7 @@ void setup() {
     for (int z = 0; z < 5; z++) {
       mcp[i].pinMode(z, OUTPUT); //sets up each pin output
     }
-  }
-  
-  for(int i = 0; i < 51; i++) {
-    EEPROM.write(i, 0);
-  }
-  
+  } 
   piece_id = random(3);
   new_piece();
   add_piece();
@@ -432,7 +427,10 @@ void loop() {
             row_count--; // Correct position for the piece
 
             if (game_over() == true) { //Game Over Event
-              ending();
+              clear_map();
+              print_map();
+              start_map();
+              print_map();
             }
           } else {
             add_piece();
