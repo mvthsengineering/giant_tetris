@@ -37,6 +37,7 @@ int placement = 0;
 boolean highscoreCase = false;
 int highscoreCode = 99;
 int highscoreCode2 = 77;
+int index = 0;
 
 uint16_t tetris_map [10] = { //Array holding values for each row on the tetris board (Hexadecimal)
   0x0041,
@@ -144,6 +145,12 @@ const char *pieces[4] = {
   piece_L
 };
 const char *piece;
+
+String places[3] = {
+  "First: ",
+  "Second: ",
+  "Third: "
+};
 
 void print_panel(uint8_t x, uint8_t y, uint8_t level) {
   mcp[y].digitalWrite(x, level); //turn on/off panel at (x, y)
@@ -395,13 +402,18 @@ void loop() {
             state = GAME; //Starts Tetris Game
           }
           if (Incoming_value == '5') {
+            index = 0;
+            Serial.println("Highscores:");
+            Serial.println();
             for (int i = 0; i < 12; i += 4) { //Displays game highscores and initials
+              Serial.print(places[index]);
               Serial.print(EEPROM.read(i));
               Serial.print(" ");
               Serial.print((char)EEPROM.read(i + 1));
               Serial.print((char)EEPROM.read(i + 2));
               Serial.print((char)EEPROM.read(i + 3));
               Serial.println();
+              index++;
             }
             Serial.print("|");
             Serial.println();
@@ -574,10 +586,6 @@ void loop() {
           Serial.print(highscoreCode2);
           Serial.println();
           highscoreCase = false;
-          delay(1000);
-          Serial.print("Press Start");
-          Serial.print("|");
-          Serial.println();
         }
         if (Serial.available() > 0) { //Reads initials typed by user on app
           for (int i = 0; i < 3; i++) {
@@ -589,6 +597,9 @@ void loop() {
           EEPROM.write(placement + 1, initials[0]);
           EEPROM.write(placement + 2, initials[1]);
           EEPROM.write(placement + 3, initials[2]);
+          Serial.print("Press Start");
+          Serial.print("|");
+          Serial.println();
           points = 0;
           state = REST;
         }
